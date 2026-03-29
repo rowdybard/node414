@@ -32,9 +32,13 @@ CREATE POLICY "Anyone can upvote logs" ON public.logs
     FOR UPDATE USING (true)
     WITH CHECK (true);
 
+-- Allow anyone to delete logs (admin uses client-side password gate)
+CREATE POLICY "Anyone can delete logs" ON public.logs
+    FOR DELETE USING (true);
+
 -- Grant permissions to anonymous users
-GRANT SELECT, INSERT, UPDATE ON public.logs TO anon;
-GRANT SELECT, INSERT, UPDATE ON public.logs TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.logs TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.logs TO authenticated;
 
 -- Create a function to increment upvotes safely
 CREATE OR REPLACE FUNCTION increment_upvotes(log_id UUID)

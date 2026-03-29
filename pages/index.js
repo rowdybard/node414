@@ -175,7 +175,7 @@ const App = () => {
         </div>
       )}
 
-      <div className="max-w-md mx-auto w-full flex-1 flex flex-col relative z-10">
+      <div className="max-w-md mx-auto w-full flex-1 flex flex-col relative z-10 min-h-0">
         <div className="flex justify-between items-start mb-8 pt-2">
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
@@ -216,12 +216,12 @@ const App = () => {
         )}
 
         {view === 'READ' && (
-          <div className="flex-1 flex flex-col animate-in fade-in slide-in-from-right-6 duration-300 overflow-hidden">
+          <div className="flex-1 flex flex-col animate-in fade-in slide-in-from-right-6 duration-300 overflow-hidden min-h-0">
             <div className="flex justify-between items-center mb-6 text-[10px] font-bold">
               <button onClick={() => setView('MENU')} className="text-[#4ade80] border border-green-900 px-4 py-1.5 hover:bg-green-900/30 transition-all uppercase tracking-widest">[ BACK ]</button>
               <span className="opacity-60 uppercase tracking-widest">{logs.length} RECORDS_ONLINE</span>
             </div>
-            <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-6 custom-scrollbar pr-1 pb-24">
+            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto space-y-6 custom-scrollbar pr-1 pb-24">
               {logs.map((log) => (
                 <div key={log.id} className="log-entry border-l-4 border-green-900/60 pl-6 py-4 space-y-4 bg-green-950/5">
                   <div className="flex justify-between items-center text-[10px] font-bold text-green-700 uppercase tracking-widest">
