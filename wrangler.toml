@@ -5,6 +5,16 @@ compatibility_date = "2023-12-01"
 compatibility_date = "2023-12-01"
 
 [[redirects]]
+from = "/admin"
+to = "/admin/index.html"
+status = 200
+
+[[redirects]]
+from = "/admin/"
+to = "/admin/index.html"
+status = 200
+
+[[redirects]]
 from = "/*"
 to = "/index.html"
 status = 200
