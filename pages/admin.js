@@ -28,8 +28,15 @@ const Admin = () => {
 
   const appId = process.env.NEXT_PUBLIC_APP_ID || 'vehicle-node-414';
 
-  const isLocked = lockedUntil && Date.now() < lockedUntil;
-  const remainingSeconds = isLocked ? Math.ceil((lockedUntil - Date.now()) / 1000) : 0;
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!lockedUntil) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [lockedUntil]);
+
+  const isLocked = lockedUntil && now < lockedUntil;
+  const remainingSeconds = isLocked ? Math.ceil((lockedUntil - now) / 1000) : 0;
 
   const handleLogin = async (e) => {
     e.preventDefault();
