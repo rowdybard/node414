@@ -1,0 +1,10 @@
+name = "node414"
+compatibility_date = "2023-12-01"
+
+[env.production]
+compatibility_date = "2023-12-01"
+
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
