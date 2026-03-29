@@ -2,26 +2,57 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Hash, ShieldAlert, Trash2, Loader2 } from 'lucide-react';
 
-const ADMIN_PASSWORD = 'Getit123!';
+const ADMIN_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH;
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
+
+async function hashPassword(password) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 const Admin = () => {
   const [authed, setAuthed] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState(null);
+  const [checking, setChecking] = useState(false);
   const [logs, setLogs] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
   const scrollRef = useRef(null);
 
   const appId = process.env.NEXT_PUBLIC_APP_ID || 'vehicle-node-414';
 
-  const handleLogin = (e) => {
+  const isLocked = lockedUntil && Date.now() < lockedUntil;
+  const remainingSeconds = isLocked ? Math.ceil((lockedUntil - Date.now()) / 1000) : 0;
+
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (passwordInput === ADMIN_PASSWORD) {
-      setAuthed(true);
-      setPasswordError(false);
-    } else {
-      setPasswordError(true);
-      setPasswordInput('');
+    if (isLocked || checking) return;
+    setChecking(true);
+    try {
+      const hash = await hashPassword(passwordInput);
+      if (hash === ADMIN_HASH) {
+        setAuthed(true);
+        setAttempts(0);
+        setPasswordError(false);
+      } else {
+        const newAttempts = attempts + 1;
+        setAttempts(newAttempts);
+        setPasswordError(true);
+        setPasswordInput('');
+        if (newAttempts >= MAX_ATTEMPTS) {
+          setLockedUntil(Date.now() + LOCKOUT_MS);
+          setAttempts(0);
+        }
+      }
+    } finally {
+      setChecking(false);
     }
   };
 
@@ -130,18 +161,27 @@ const Admin = () => {
                 autoFocus
                 value={passwordInput}
                 onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(false); }}
-                className="w-full bg-[#080808] border-2 border-green-900 focus:border-[#4ade80] p-4 text-[#4ade80] font-mono text-sm outline-none rounded-none"
+                disabled={isLocked || checking}
+                className="w-full bg-[#080808] border-2 border-green-900 focus:border-[#4ade80] p-4 text-[#4ade80] font-mono text-sm outline-none rounded-none disabled:opacity-40 disabled:cursor-not-allowed"
                 placeholder="••••••••"
               />
-              {passwordError && (
-                <p className="text-red-500 text-[10px] uppercase tracking-widest font-bold">ACCESS_DENIED</p>
+              {isLocked && (
+                <p className="text-red-500 text-[10px] uppercase tracking-widest font-bold">
+                  LOCKED — {Math.floor(remainingSeconds / 60)}:{String(remainingSeconds % 60).padStart(2, '0')} REMAINING
+                </p>
+              )}
+              {!isLocked && passwordError && (
+                <p className="text-red-500 text-[10px] uppercase tracking-widest font-bold">
+                  ACCESS_DENIED — {MAX_ATTEMPTS - attempts} ATTEMPTS REMAINING
+                </p>
               )}
             </div>
             <button
               type="submit"
-              className="w-full bg-[#4ade80] text-black py-4 font-black uppercase text-xs tracking-[0.4em] hover:brightness-110 active:scale-95 transition-all"
+              disabled={isLocked || checking}
+              className="w-full bg-[#4ade80] text-black py-4 font-black uppercase text-xs tracking-[0.4em] hover:brightness-110 active:scale-95 transition-all disabled:bg-green-950 disabled:text-green-900 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              AUTHENTICATE
+              {checking ? <><Loader2 size={14} className="animate-spin" /> VERIFYING...</> : 'AUTHENTICATE'}
             </button>
           </form>
         </div>
