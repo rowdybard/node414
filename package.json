@@ -7,10 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "export": "next build"
+    "export": "next build",
+    "seed": "node scripts/seed.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
+    "dotenv": "^16.3.1",
     "lucide-react": "^0.263.1",
     "next": "14.0.0",
     "react": "^18.2.0",

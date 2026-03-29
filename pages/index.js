@@ -21,25 +21,11 @@ const App = () => {
         // Initialize database
         await initializeDatabase();
         
-        // Get current session
-        const { data: { session } } = await supabase.auth.getSession();
+        // Skip authentication entirely and use anonymous user
+        setUser({ id: `anon_${Date.now()}_${Math.random().toString(36).substring(2, 15)}` });
         
-        if (session?.user) {
-          setUser(session.user);
-        } else {
-          // Sign in anonymously
-          const { data, error } = await supabase.auth.signInAnonymously();
-          if (error) {
-            console.error("Auth failed:", error);
-            // Create a temporary user ID for offline mode
-            setUser({ id: `temp_${Date.now()}` });
-          } else {
-            setUser(data.user);
-          }
-        }
       } catch (error) {
-        console.error("Initialization failed:", error);
-        // Fallback to temporary user
+        // Fallback to temporary user - suppress console errors
         setUser({ id: `temp_${Date.now()}` });
       } finally {
         setIsLoading(false);
@@ -47,13 +33,6 @@ const App = () => {
     };
 
     initAuth();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user || null);
-    });
-
-    return () => subscription.unsubscribe();
   }, []);
 
   // 2. DATA FETCHING
@@ -238,15 +217,15 @@ const App = () => {
         </div>
       )}
 
-      <div className="max-w-md mx-auto w-full flex-1 flex flex-col relative z-10">
+      <div className="max-w-lg mx-auto w-full flex-1 flex flex-col relative z-10 px-2">
         <div className="flex justify-between items-start mb-6">
           <div className="flex flex-col">
-            <div className="flex items-center gap-2 text-green-400">
+            <div className="flex items-center gap-2 text-green-300">
               <Hash size={18} />
-              <h1 className="text-lg font-black tracking-tighter">NODE_414</h1>
+              <h1 className="text-2xl md:text-lg font-black tracking-tighter text-white">NODE_414</h1>
               {!user && <Loader2 size={14} className="animate-spin opacity-50" />}
             </div>
-            <span className="text-[9px] opacity-40 uppercase tracking-[0.2em]">Lansing Sector • Mobile Unit</span>
+            <span className="text-sm md:text-[9px] opacity-60 uppercase tracking-[0.2em] text-green-200">Lansing Sector • Mobile Unit</span>
           </div>
           <button onClick={() => setShowHelp(true)} className="p-2 border border-green-900 hover:border-green-400 transition-colors">
             <HelpCircle size={18} />
@@ -280,25 +259,25 @@ const App = () => {
 
         {view === 'READ' && (
           <div className="flex-1 flex flex-col animate-fade-in animate-slide-in-from-right-4 duration-300 overflow-hidden">
-            <div className="flex justify-between items-center mb-4 text-[10px] opacity-50">
-              <button onClick={() => setView('MENU')} className="hover:underline text-green-400 font-bold">[ BACK ]</button>
+            <div className="flex justify-between items-center mb-4 text-base md:text-[10px] opacity-70">
+              <button onClick={() => setView('MENU')} className="hover:underline text-green-300 font-bold">[ BACK ]</button>
               <span>{logs.length} RECORDS FOUND</span>
             </div>
             <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-1">
               {logs.map((log) => (
                 <div key={log.id} className="border border-green-900/40 p-4 space-y-3 bg-green-950/5">
-                  <div className="flex justify-between items-center text-[9px] opacity-40">
+                  <div className="flex justify-between items-center text-base md:text-[9px] opacity-60 text-green-200">
                     <span>
                       {log.created_at ? 
                         new Date(log.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 
                         'PENDING...'
                       }
                     </span>
-                    <button onClick={() => upvoteLog(log.id)} className="flex items-center gap-1 hover:text-green-400 transition-colors">
+                    <button onClick={() => upvoteLog(log.id)} className="flex items-center gap-1 hover:text-green-300 transition-colors text-green-100">
                       [ VOUCH: {log.upvotes || 0} ]
                     </button>
                   </div>
-                  <p className="text-sm leading-relaxed text-green-100">{log.text}</p>
+                  <p className="text-lg md:text-sm leading-relaxed text-white font-medium">{log.text}</p>
                 </div>
               ))}
             </div>
@@ -312,11 +291,11 @@ const App = () => {
 
         {view === 'WRITE' && (
           <div className="flex-1 flex flex-col animate-fade-in animate-slide-in-from-top-4 duration-300">
-            <button onClick={() => setView('MENU')} className="text-[10px] text-green-400 mb-6 hover:underline">[ ABORT_ENTRY ]</button>
+            <button onClick={() => setView('MENU')} className="text-base md:text-[10px] text-green-300 mb-6 hover:underline">[ ABORT_ENTRY ]</button>
             <div className="flex-1 flex flex-col gap-4">
               <textarea 
                 autoFocus
-                className="flex-1 w-full bg-black border border-green-500 p-4 text-green-400 focus:outline-none focus:ring-1 focus:ring-green-400 font-mono text-sm leading-relaxed"
+                className="flex-1 w-full bg-black border-2 border-green-400 p-4 text-green-100 focus:outline-none focus:ring-2 focus:ring-green-300 font-mono text-lg md:text-sm leading-relaxed"
                 placeholder="Leave a secret, a joke, or advice for the next person..."
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
@@ -325,7 +304,7 @@ const App = () => {
               <button 
                 onClick={handleAddLog}
                 disabled={isTransmitting || !inputText.trim()}
-                className="w-full flex items-center justify-center gap-2 bg-green-500 text-black py-4 font-bold disabled:bg-green-900 disabled:text-green-700 transition-all uppercase tracking-widest"
+                className="w-full flex items-center justify-center gap-2 bg-green-400 text-black py-4 font-bold disabled:bg-green-800 disabled:text-green-600 transition-all uppercase tracking-widest text-lg md:text-sm"
               >
                 {isTransmitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                 {isTransmitting ? 'Transmitting...' : 'Confirm Transmission'}
