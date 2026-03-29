@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Terminal, Send, History, Hash, ShieldAlert, X, ChevronRight, HelpCircle, Loader2 } from 'lucide-react';
 
@@ -11,6 +11,7 @@ const App = () => {
   const [showHelp, setShowHelp] = useState(false);
   const [isTransmitting, setIsTransmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const scrollRef = useRef(null);
 
   const appId = process.env.NEXT_PUBLIC_APP_ID || 'vehicle-node-414';
 
@@ -98,6 +99,35 @@ const App = () => {
     } catch (_) {}
   };
 
+  const observeLogs = useCallback(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const entries = container.querySelectorAll('.log-entry');
+    const observer = new IntersectionObserver(
+      (observed) => {
+        observed.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.remove('hidden');
+            entry.target.classList.add('visible');
+          } else {
+            entry.target.classList.remove('visible');
+            entry.target.classList.add('hidden');
+          }
+        });
+      },
+      { root: container, threshold: 0.15 }
+    );
+    entries.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [logs]);
+
+  useEffect(() => {
+    if (view === 'READ') {
+      const cleanup = observeLogs();
+      return cleanup;
+    }
+  }, [view, logs, observeLogs]);
+
   const CRTOverlay = () => (
     <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden select-none">
       <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.05)_50%),linear-gradient(90deg,rgba(255,0,0,0.02),rgba(0,255,0,0.01),rgba(0,0,255,0.02))] bg-[length:100%_4px,4px_100%]" />
@@ -128,8 +158,8 @@ const App = () => {
       <CRTOverlay />
       
       {showHelp && (
-        <div className="fixed inset-0 z-[60] bg-black/98 p-6 flex flex-col justify-center animate-in fade-in zoom-in duration-200">
-          <div className="border-2 border-[#4ade80] p-6 space-y-6 relative shadow-[0_0_20px_rgba(34,197,94,0.1)]">
+        <div className="fixed inset-0 z-[60] bg-black/98 p-6 flex flex-col justify-center">
+          <div className="bg-[#050505] border-2 border-[#4ade80] p-6 space-y-6 relative shadow-[0_0_20px_rgba(34,197,94,0.1)] max-w-md mx-auto w-full">
             <button onClick={() => setShowHelp(false)} className="absolute top-2 right-2 p-2 hover:text-white"><X size={24}/></button>
             <h2 className="text-2xl font-black border-b border-green-900 pb-3 tracking-tighter uppercase terminal-glow">SYSTEM_MANUAL</h2>
             <div className="text-sm leading-relaxed opacity-90 space-y-4">
@@ -191,9 +221,9 @@ const App = () => {
               <button onClick={() => setView('MENU')} className="text-[#4ade80] border border-green-900 px-4 py-1.5 hover:bg-green-900/30 transition-all uppercase tracking-widest">[ BACK ]</button>
               <span className="opacity-60 uppercase tracking-widest">{logs.length} RECORDS_ONLINE</span>
             </div>
-            <div className="flex-1 overflow-y-auto space-y-6 custom-scrollbar pr-1 pb-24">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-6 custom-scrollbar pr-1 pb-24">
               {logs.map((log) => (
-                <div key={log.id} className="border-l-4 border-green-900/60 pl-6 py-4 space-y-4 bg-green-950/5">
+                <div key={log.id} className="log-entry border-l-4 border-green-900/60 pl-6 py-4 space-y-4 bg-green-950/5">
                   <div className="flex justify-between items-center text-[10px] font-bold text-green-700 uppercase tracking-widest">
                     <span>STAMP: {log.created_at ? new Date(log.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'SYNCING'}</span>
                     <button onClick={() => upvoteLog(log.id)} className="flex items-center gap-2 hover:text-[#4ade80] transition-colors border border-green-900/40 px-3 py-1 bg-green-950/20">
