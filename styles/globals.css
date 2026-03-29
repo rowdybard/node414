@@ -65,29 +65,28 @@
   }
 }
 
+/* Terminal glow effect for enhanced readability */
+.terminal-glow {
+  text-shadow: 0 0 10px currentColor;
+}
+
 /* Ensure proper font rendering for the terminal aesthetic */
 body {
   font-family: 'Courier New', monospace;
-  background-color: #000000;
-  color: #00ff00;
-  font-size: 16px;
-  line-height: 1.6;
+  background-color: #050505;
+  color: #10b981;
 }
 
-/* Mobile-first responsive typography */
-@media (max-width: 768px) {
-  body {
-    font-size: 18px;
-  }
-  
-  .text-xs { font-size: 14px !important; }
-  .text-sm { font-size: 18px !important; }
-  .text-base { font-size: 20px !important; }
-  .text-lg { font-size: 24px !important; }
-  .text-xl { font-size: 28px !important; }
-  .text-2xl { font-size: 32px !important; }
-  
-  /* Specific mobile overrides for readability */
-  .text-\[9px\] { font-size: 16px !important; }
-  .text-\[10px\] { font-size: 18px !important; }
+/* Enhanced scrollbar styling for Node aesthetic */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #064e3b;
+  border-radius: 2px;
 }
