@@ -39,6 +39,7 @@ const App = () => {
   const [deletingId, setDeletingId] = useState(null);
   const [seeding, setSeeding] = useState(false);
   const [votedLogs, setVotedLogs] = useState([]);
+  const [vouchingId, setVouchingId] = useState(null);
 
   const appId = process.env.NEXT_PUBLIC_APP_ID || 'vehicle-node-414';
 
@@ -127,7 +128,8 @@ const App = () => {
   };
 
   const upvoteLog = async (logId) => {
-    if (!user || votedLogs.includes(logId)) return;
+    if (!user || votedLogs.includes(logId) || vouchingId === logId) return;
+    setVouchingId(logId);
     try {
       const { data: currentLog, error: fetchError } = await supabase
         .from('logs').select('upvotes').eq('id', logId).single();
@@ -139,7 +141,10 @@ const App = () => {
         setVotedLogs(next);
         localStorage.setItem('node414_voted_logs', JSON.stringify(next));
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      setVouchingId(null);
+    }
   };
 
   // Detect /admin path client-side
@@ -308,7 +313,7 @@ const App = () => {
             </div>
             <form onSubmit={handleAdminLogin} className="space-y-4">
               <div className="space-y-2">
-                <label className="text-[10px] uppercase tracking-[0.3em] font-bold text-green-700">AUTH_KEY</label>
+                <label className="text-[10px] uppercase tracking-[0.3em] font-bold text-green-400">AUTH_KEY</label>
                 <input
                   type="password"
                   autoFocus
@@ -357,7 +362,7 @@ const App = () => {
             <div className="flex items-center gap-2">
               <div className="inline-flex items-center gap-2 px-3 py-2 border border-green-900 text-[9px] text-green-700 font-bold tracking-[0.2em] uppercase">
                 <ShieldAlert size={12} />
-                <span>ROOT_ACCESS</span>
+                <span className="text-green-400">ROOT_ACCESS</span>
               </div>
               <button onClick={() => setAdminAuthed(false)} className="text-red-500/60 border border-red-900/40 px-3 py-2 text-[9px] hover:bg-red-900/20 transition-all uppercase tracking-widest font-bold">LOGOUT</button>
             </div>
@@ -376,7 +381,7 @@ const App = () => {
           <div ref={adminScrollRef} className="flex-1 min-h-0 overflow-y-auto space-y-6 custom-scrollbar pr-1 pb-8">
             {logs.map((log) => (
               <div key={log.id} className="log-entry border-l-4 border-green-900/60 pl-6 py-4 space-y-4 bg-green-950/5">
-                <div className="flex justify-between items-center text-[10px] font-bold text-green-700 uppercase tracking-widest">
+                <div className="flex justify-between items-center text-[10px] font-bold text-green-400 uppercase tracking-widest">
                   <span>STAMP: {log.created_at ? new Date(log.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'SYNCING'}</span>
                   <div className="flex items-center gap-2">
                     <span className="border border-green-900/40 px-3 py-1 bg-green-950/20">VOUCH: {log.upvotes || 0}</span>
@@ -391,7 +396,7 @@ const App = () => {
                   </div>
                 </div>
                 <p className="text-lg leading-relaxed text-green-50 font-medium terminal-glow">{log.text}</p>
-                <p className="text-[9px] text-green-900 uppercase tracking-widest">ID: {log.id} • AUTH: {log.author_id?.substring(0, 12)}...</p>
+                <p className="text-[9px] uppercase tracking-widest"><span className="text-[#22c55e] terminal-glow">ID: {log.id}</span> <span className="text-green-400">• AUTH: {log.author_id?.substring(0, 12)}...</span></p>
               </div>
             ))}
             {logs.length === 0 && (
@@ -482,7 +487,7 @@ const App = () => {
             <div className="pt-12 flex flex-col items-center gap-4">
               <div className="inline-flex items-center gap-2 px-4 py-2 border border-green-900 rounded-sm text-[9px] text-green-700 font-bold tracking-[0.2em] uppercase">
                 <ShieldAlert size={12} />
-                <span>USER_AUTH: {user?.id?.substring(0, 8)}</span>
+                <span className="text-green-400">USER_AUTH: {user?.id?.substring(0, 8)}</span>
               </div>
             </div>
           </div>
@@ -497,18 +502,26 @@ const App = () => {
             <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto space-y-6 custom-scrollbar pr-1 pb-24">
               {logs.map((log) => (
                 <div key={log.id} className="log-entry border-l-4 border-green-900/60 pl-6 py-4 space-y-4 bg-green-950/5">
-                  <div className="flex justify-between items-center text-[10px] font-bold text-green-700 uppercase tracking-widest">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-green-400 uppercase tracking-widest">
                     <span>STAMP: {log.created_at ? new Date(log.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'SYNCING'}</span>
                     <button
                       onClick={() => upvoteLog(log.id)}
-                      disabled={votedLogs.includes(log.id)}
-                      className={`flex items-center gap-2 transition-colors border px-3 py-1 ${
+                      disabled={votedLogs.includes(log.id) || vouchingId === log.id}
+                      className={`flex items-center gap-2 transition-all border px-3 py-1 ${
                         votedLogs.includes(log.id)
-                          ? 'text-[#4ade80] border-[#4ade80]/50 bg-green-950/40 cursor-default'
-                          : 'hover:text-[#4ade80] border-green-900/40 bg-green-950/20'
+                          ? 'text-[#22c55e] border-[#22c55e]/60 bg-green-950/50 cursor-default shadow-[0_0_8px_rgba(34,197,94,0.3)]'
+                          : vouchingId === log.id
+                          ? 'text-[#22c55e] border-[#22c55e]/40 bg-green-950/30 animate-pulse'
+                          : 'hover:text-[#22c55e] border-green-800/60 bg-green-950/20 text-green-400'
                       }`}
                     >
-                      {votedLogs.includes(log.id) ? '✓ VOUCHED: ' : '[ VOUCH: '}{log.upvotes || 0}{votedLogs.includes(log.id) ? '' : ' ]'}
+                      {vouchingId === log.id ? (
+                        <><Loader2 size={10} className="animate-spin" /> VOUCHING...</>
+                      ) : votedLogs.includes(log.id) ? (
+                        <>✓ VOUCHED: {log.upvotes || 0}</>
+                      ) : (
+                        <>[ VOUCH: {log.upvotes || 0} ]</>
+                      )}
                     </button>
                   </div>
                   <p className="text-lg leading-relaxed text-green-50 font-medium terminal-glow">{log.text}</p>
@@ -532,7 +545,7 @@ const App = () => {
           <div className="flex-1 flex flex-col animate-in fade-in slide-in-from-top-6 duration-300">
             <button onClick={() => setView('MENU')} className="text-xs text-[#4ade80] mb-8 hover:text-white transition-colors font-bold uppercase tracking-[0.2em]">[ ABORT_ENTRY ]</button>
             <div className="flex-1 flex flex-col gap-6">
-              <div className="text-[10px] text-green-700 uppercase tracking-[0.3em] font-black">
+              <div className="text-[10px] text-green-400 uppercase tracking-[0.3em] font-black">
                 {"> ESTABLISHING_ANONYMOUS_UPLINK..."}
               </div>
               <textarea 
