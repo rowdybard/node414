@@ -194,6 +194,7 @@ const App = () => {
       setLastPostTime(postTime);
       localStorage.setItem('node414_last_post', postTime.toString());
       if (data && data[0]) {
+        setLogs(current => [data[0], ...current]);
         setTypewriterLogId(data[0].id);
         setTimeout(() => setTypewriterLogId(null), 3000);
       }
