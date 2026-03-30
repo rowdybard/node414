@@ -5,6 +5,7 @@ import { Terminal, Send, History, Hash, ShieldAlert, X, ChevronRight, HelpCircle
 const ADMIN_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH;
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
+const OPENAI_API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
 
 async function hashPassword(password) {
   const encoder = new TextEncoder();
@@ -40,6 +41,7 @@ const App = () => {
   const [seeding, setSeeding] = useState(false);
   const [votedLogs, setVotedLogs] = useState([]);
   const [vouchingId, setVouchingId] = useState(null);
+  const [moderationError, setModerationError] = useState('');
 
   const appId = process.env.NEXT_PUBLIC_APP_ID || 'vehicle-node-414';
 
@@ -110,16 +112,43 @@ const App = () => {
     }
   }, [view]);
 
-  const handleAddLog = async (e) => {
-    e.preventDefault();
+  const moderateContent = async (text) => {
+    if (!OPENAI_API_KEY || OPENAI_API_KEY === 'your_openai_api_key_here') {
+      return { flagged: false };
+    }
+    try {
+      const response = await fetch('https://api.openai.com/v1/moderations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({ input: text })
+      });
+      const data = await response.json();
+      return data.results?.[0] || { flagged: false };
+    } catch (_) {
+      return { flagged: false };
+    }
+  };
+
+  const handleAddLog = async () => {
     if (!inputText.trim() || !user || isTransmitting) return;
     setIsTransmitting(true);
+    setModerationError('');
     try {
+      const modResult = await moderateContent(inputText);
+      if (modResult.flagged) {
+        setModerationError('CONTENT_REJECTED: MESSAGE_VIOLATES_COMMUNITY_STANDARDS');
+        setIsTransmitting(false);
+        return;
+      }
       const { error } = await supabase
         .from('logs')
         .insert([{ text: inputText, app_id: appId, upvotes: 0, author_id: user.id, created_at: new Date().toISOString() }]);
       if (error) return;
       setInputText('');
+      setModerationError('');
       setView('READ');
     } catch (_) {
     } finally {
@@ -548,6 +577,11 @@ const App = () => {
               <div className="text-[10px] text-green-400 uppercase tracking-[0.3em] font-black">
                 {"> ESTABLISHING_ANONYMOUS_UPLINK..."}
               </div>
+              {moderationError && (
+                <div className="bg-red-950/30 border border-red-900/60 p-4 text-red-400 text-[10px] uppercase tracking-widest font-bold animate-pulse">
+                  {moderationError}
+                </div>
+              )}
               <textarea 
                 autoFocus
                 className="flex-1 w-full bg-[#080808] border-2 border-green-900 p-6 text-[#4ade80] focus:outline-none focus:border-[#4ade80] font-mono text-lg leading-relaxed resize-none rounded-none placeholder:text-green-950 terminal-glow"
