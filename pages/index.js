@@ -5,7 +5,6 @@ import { Terminal, Send, History, Hash, ShieldAlert, X, ChevronRight, HelpCircle
 const ADMIN_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH;
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
-const OPENAI_API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
 
 async function hashPassword(password) {
   const encoder = new TextEncoder();
@@ -113,20 +112,16 @@ const App = () => {
   }, [view]);
 
   const moderateContent = async (text) => {
-    if (!OPENAI_API_KEY || OPENAI_API_KEY === 'your_openai_api_key_here') {
-      return { flagged: false };
-    }
     try {
-      const response = await fetch('https://api.openai.com/v1/moderations', {
+      const response = await fetch('/api/moderate', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${OPENAI_API_KEY}`
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ input: text })
+        body: JSON.stringify({ text })
       });
       const data = await response.json();
-      return data.results?.[0] || { flagged: false };
+      return data || { flagged: false };
     } catch (_) {
       return { flagged: false };
     }
