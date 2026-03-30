@@ -38,11 +38,21 @@ const App = () => {
   const [adminNow, setAdminNow] = useState(Date.now());
   const [deletingId, setDeletingId] = useState(null);
   const [seeding, setSeeding] = useState(false);
+  const [votedLogs, setVotedLogs] = useState([]);
 
   const appId = process.env.NEXT_PUBLIC_APP_ID || 'vehicle-node-414';
 
   useEffect(() => {
-    setUser({ id: `anon_${Date.now()}_${Math.random().toString(36).substring(2, 15)}` });
+    let userId = localStorage.getItem('node414_user_id');
+    if (!userId) {
+      userId = `anon_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+      localStorage.setItem('node414_user_id', userId);
+    }
+    setUser({ id: userId });
+    try {
+      const stored = localStorage.getItem('node414_voted_logs');
+      if (stored) setVotedLogs(JSON.parse(stored));
+    } catch (_) {}
     setIsLoading(false);
   }, []);
 
@@ -73,6 +83,8 @@ const App = () => {
             setLogs(current => [payload.new, ...current]);
           } else if (payload.eventType === 'UPDATE') {
             setLogs(current => current.map(log => log.id === payload.new.id ? payload.new : log));
+          } else if (payload.eventType === 'DELETE') {
+            setLogs(current => current.filter(log => log.id !== payload.old.id));
           }
         }
       )
@@ -115,13 +127,18 @@ const App = () => {
   };
 
   const upvoteLog = async (logId) => {
-    if (!user) return;
+    if (!user || votedLogs.includes(logId)) return;
     try {
       const { data: currentLog, error: fetchError } = await supabase
         .from('logs').select('upvotes').eq('id', logId).single();
       if (fetchError) return;
-      await supabase
+      const { error } = await supabase
         .from('logs').update({ upvotes: (currentLog.upvotes || 0) + 1 }).eq('id', logId);
+      if (!error) {
+        const next = [...votedLogs, logId];
+        setVotedLogs(next);
+        localStorage.setItem('node414_voted_logs', JSON.stringify(next));
+      }
     } catch (_) {}
   };
 
@@ -482,8 +499,16 @@ const App = () => {
                 <div key={log.id} className="log-entry border-l-4 border-green-900/60 pl-6 py-4 space-y-4 bg-green-950/5">
                   <div className="flex justify-between items-center text-[10px] font-bold text-green-700 uppercase tracking-widest">
                     <span>STAMP: {log.created_at ? new Date(log.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'SYNCING'}</span>
-                    <button onClick={() => upvoteLog(log.id)} className="flex items-center gap-2 hover:text-[#4ade80] transition-colors border border-green-900/40 px-3 py-1 bg-green-950/20">
-                      [ VOUCH: {log.upvotes || 0} ]
+                    <button
+                      onClick={() => upvoteLog(log.id)}
+                      disabled={votedLogs.includes(log.id)}
+                      className={`flex items-center gap-2 transition-colors border px-3 py-1 ${
+                        votedLogs.includes(log.id)
+                          ? 'text-[#4ade80] border-[#4ade80]/50 bg-green-950/40 cursor-default'
+                          : 'hover:text-[#4ade80] border-green-900/40 bg-green-950/20'
+                      }`}
+                    >
+                      {votedLogs.includes(log.id) ? '✓ VOUCHED: ' : '[ VOUCH: '}{log.upvotes || 0}{votedLogs.includes(log.id) ? '' : ' ]'}
                     </button>
                   </div>
                   <p className="text-lg leading-relaxed text-green-50 font-medium terminal-glow">{log.text}</p>
