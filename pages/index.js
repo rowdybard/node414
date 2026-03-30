@@ -108,9 +108,11 @@ const App = () => {
         { event: '*', schema: 'public', table: 'logs', filter: `app_id=eq.${appId}` }, 
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            setLogs(current => [payload.new, ...current]);
-            if (view === 'READ' && payload.new.author_id !== user?.id) {
-              setNewLogCount(prev => prev + 1);
+            if (payload.new.author_id !== user?.id) {
+              setLogs(current => [payload.new, ...current]);
+              if (view === 'READ') {
+                setNewLogCount(prev => prev + 1);
+              }
             }
           } else if (payload.eventType === 'UPDATE') {
             setLogs(current => current.map(log => log.id === payload.new.id ? payload.new : log));
