@@ -49,6 +49,7 @@ const App = () => {
   const [isOnline, setIsOnline] = useState(true);
   const [newLogCount, setNewLogCount] = useState(0);
   const [now, setNow] = useState(Date.now());
+  const [typewriterLogId, setTypewriterLogId] = useState(null);
 
   const appId = process.env.NEXT_PUBLIC_APP_ID || 'vehicle-node-414';
 
@@ -183,13 +184,19 @@ const App = () => {
         setIsTransmitting(false);
         return;
       }
-      const { error } = await supabase
+      const newLog = { text: inputText, app_id: appId, upvotes: 0, author_id: user.id, created_at: new Date().toISOString() };
+      const { data, error } = await supabase
         .from('logs')
-        .insert([{ text: inputText, app_id: appId, upvotes: 0, author_id: user.id, created_at: new Date().toISOString() }]);
+        .insert([newLog])
+        .select();
       if (error) return;
       const postTime = Date.now();
       setLastPostTime(postTime);
       localStorage.setItem('node414_last_post', postTime.toString());
+      if (data && data[0]) {
+        setTypewriterLogId(data[0].id);
+        setTimeout(() => setTypewriterLogId(null), 3000);
+      }
       setInputText('');
       setModerationError('');
       setView('READ');
@@ -636,7 +643,11 @@ const App = () => {
                       )}
                     </button>
                   </div>
-                  <p className="text-lg leading-relaxed text-green-50 font-medium terminal-glow">{log.text}</p>
+                  <p className={`text-lg leading-relaxed text-green-50 font-medium terminal-glow ${
+                    typewriterLogId === log.id ? 'typewriter-text typewriter-caret' : ''
+                  }`}>
+                    {log.text}
+                  </p>
                 </div>
               ))}
               {logs.length === 0 && (

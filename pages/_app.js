@@ -24,6 +24,11 @@ export default function App({ Component, pageProps }) {
         {/* Theme */}
         <meta name="theme-color" content="#050505" />
         <link rel="icon" href="/favicon.ico" />
+        
+        {/* Retro Pixel Font */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet" />
       </Head>
       <Component {...pageProps} />
     </>
