@@ -37,6 +37,7 @@ const App = () => {
   const [adminChecking, setAdminChecking] = useState(false);
   const [adminNow, setAdminNow] = useState(Date.now());
   const [deletingId, setDeletingId] = useState(null);
+  const [seeding, setSeeding] = useState(false);
 
   const appId = process.env.NEXT_PUBLIC_APP_ID || 'vehicle-node-414';
 
@@ -177,6 +178,32 @@ const App = () => {
     }
   };
 
+  const seedDatabase = async () => {
+    setSeeding(true);
+    try {
+      const now = Date.now();
+      const h = 60 * 60 * 1000;
+      const m = 60 * 1000;
+      const seeds = [
+        { text: "whoever was just in here before me left the door unlocked lol", upvotes: 47, created_at: new Date(now - 12 * h).toISOString() },
+        { text: "nah why does this feel like i wasn't the first one reading this tonight", upvotes: 23, created_at: new Date(now - 9 * h).toISOString() },
+        { text: "driver hasn't said a word the whole ride. kinda respect it", upvotes: 31, created_at: new Date(now - 7 * h).toISOString() },
+        { text: "someone said don't sit on the right side\u2026 i'm on the right side", upvotes: 15, created_at: new Date(now - 5 * h).toISOString() },
+        { text: "this is way more interesting than my conversation rn", upvotes: 52, created_at: new Date(now - 3 * h).toISOString() },
+        { text: "i feel like people are leaving messages for each other but missing every time", upvotes: 8, created_at: new Date(now - 90 * m).toISOString() },
+        { text: "if you're reading this later\u2014yes it was loud as hell on grand river tonight", upvotes: 19, created_at: new Date(now - 20 * m).toISOString() },
+        { text: "3 min ago: 'don't open this'\nyeah ok", upvotes: 6, created_at: new Date(now - 3 * m).toISOString() },
+      ];
+      await supabase.from('logs').delete().eq('app_id', appId);
+      await supabase.from('logs').insert(seeds.map(s => ({ ...s, app_id: appId, author_id: 'seed_system' })));
+      const { data } = await supabase.from('logs').select('*').eq('app_id', appId).order('created_at', { ascending: false });
+      setLogs(data || []);
+    } catch (_) {
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   const observeAdminLogs = useCallback(() => {
     const container = adminScrollRef.current;
     if (!container) return;
@@ -260,7 +287,7 @@ const App = () => {
                 <Hash size={20} className="terminal-glow" />
                 <h1 className="text-2xl font-black tracking-tighter italic terminal-glow">NODE_414</h1>
               </div>
-              <span className="text-[10px] opacity-60 uppercase tracking-[0.3em] font-bold">ADMIN_ACCESS</span>
+              <span className="text-[10px] opacity-60 uppercase tracking-[0.3em] font-bold">SECURE_ACCESS</span>
             </div>
             <form onSubmit={handleAdminLogin} className="space-y-4">
               <div className="space-y-2">
@@ -308,7 +335,7 @@ const App = () => {
                 <Hash size={20} className="text-[#4ade80] terminal-glow" />
                 <h1 className="text-2xl font-black tracking-tighter italic terminal-glow">NODE_414</h1>
               </div>
-              <span className="text-[10px] opacity-60 uppercase tracking-[0.3em] font-bold mt-1">ADMIN_CONSOLE</span>
+              <span className="text-[10px] opacity-60 uppercase tracking-[0.3em] font-bold mt-1">ROOT_CONSOLE</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="inline-flex items-center gap-2 px-3 py-2 border border-green-900 text-[9px] text-green-700 font-bold tracking-[0.2em] uppercase">
@@ -320,6 +347,14 @@ const App = () => {
           </div>
           <div className="flex justify-between items-center mb-6 text-[10px] font-bold">
             <span className="opacity-60 uppercase tracking-widest">{logs.length} RECORDS_ONLINE</span>
+            <button
+              onClick={seedDatabase}
+              disabled={seeding}
+              className="flex items-center gap-1 border border-yellow-900/60 px-3 py-1 bg-yellow-950/20 text-yellow-500/70 hover:text-yellow-400 hover:border-yellow-500/60 transition-all disabled:opacity-40 text-[9px] uppercase tracking-widest font-bold"
+            >
+              {seeding && <Loader2 size={10} className="animate-spin" />}
+              {seeding ? 'SEEDING...' : 'SEED_DB'}
+            </button>
           </div>
           <div ref={adminScrollRef} className="flex-1 min-h-0 overflow-y-auto space-y-6 custom-scrollbar pr-1 pb-8">
             {logs.map((log) => (
@@ -398,10 +433,13 @@ const App = () => {
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
               <Hash size={20} className="text-[#4ade80] terminal-glow" />
-              <h1 className="text-2xl font-black tracking-tighter italic terminal-glow">NODE_414</h1>
+              <h1 className="text-2xl font-black tracking-tighter italic terminal-glow">NODE_414 // ACTIVE</h1>
               {!user && <Loader2 size={16} className="animate-spin opacity-50" />}
             </div>
-            <span className="text-[10px] opacity-60 uppercase tracking-[0.3em] font-bold mt-1">LANSING_SECTOR_MOBILE</span>
+            <div className="flex gap-3 mt-1">
+              <span className="text-[10px] opacity-60 uppercase tracking-[0.3em] font-bold">SECTOR: LANSING</span>
+              <span className="text-[10px] opacity-30 uppercase tracking-[0.3em] font-bold">PUBLIC LOG STREAM</span>
+            </div>
           </div>
           <button onClick={() => setShowHelp(true)} className="p-3 border border-green-900 hover:border-[#4ade80] hover:bg-green-900/20 transition-all rounded-sm">
             <HelpCircle size={20} />
