@@ -5,6 +5,9 @@ import { Terminal, Send, History, Hash, ShieldAlert, X, ChevronRight, HelpCircle
 const ADMIN_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH;
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
+const MAX_CHARS = 280;
+const RATE_LIMIT_MS = 5 * 60 * 1000;
+const PROFANITY_LIST = ['fuck', 'shit', 'bitch', 'ass', 'damn', 'hell', 'cunt', 'dick', 'pussy', 'cock', 'fag', 'nigger', 'nigga', 'retard', 'slut', 'whore'];
 
 async function hashPassword(password) {
   const encoder = new TextEncoder();
@@ -41,6 +44,11 @@ const App = () => {
   const [votedLogs, setVotedLogs] = useState([]);
   const [vouchingId, setVouchingId] = useState(null);
   const [moderationError, setModerationError] = useState('');
+  const [lastPostTime, setLastPostTime] = useState(null);
+  const [rateLimitRemaining, setRateLimitRemaining] = useState(0);
+  const [isOnline, setIsOnline] = useState(true);
+  const [newLogCount, setNewLogCount] = useState(0);
+  const [now, setNow] = useState(Date.now());
 
   const appId = process.env.NEXT_PUBLIC_APP_ID || 'vehicle-node-414';
 
@@ -54,9 +62,26 @@ const App = () => {
     try {
       const stored = localStorage.getItem('node414_voted_logs');
       if (stored) setVotedLogs(JSON.parse(stored));
+      const lastPost = localStorage.getItem('node414_last_post');
+      if (lastPost) setLastPostTime(parseInt(lastPost));
     } catch (_) {}
     setIsLoading(false);
   }, []);
+
+  useEffect(() => {
+    const ticker = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(ticker);
+  }, []);
+
+  useEffect(() => {
+    if (lastPostTime) {
+      const elapsed = now - lastPostTime;
+      const remaining = Math.max(0, Math.ceil((RATE_LIMIT_MS - elapsed) / 1000));
+      setRateLimitRemaining(remaining);
+    } else {
+      setRateLimitRemaining(0);
+    }
+  }, [now, lastPostTime]);
 
   useEffect(() => {
     if (!user || isLoading) return;
@@ -83,6 +108,9 @@ const App = () => {
         (payload) => {
           if (payload.eventType === 'INSERT') {
             setLogs(current => [payload.new, ...current]);
+            if (view === 'READ' && payload.new.author_id !== user?.id) {
+              setNewLogCount(prev => prev + 1);
+            }
           } else if (payload.eventType === 'UPDATE') {
             setLogs(current => current.map(log => log.id === payload.new.id ? payload.new : log));
           } else if (payload.eventType === 'DELETE') {
@@ -90,7 +118,13 @@ const App = () => {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setIsOnline(true);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setIsOnline(false);
+        }
+      });
 
     return () => { supabase.removeChannel(channel); };
   }, [user, appId, isLoading]);
@@ -111,7 +145,18 @@ const App = () => {
     }
   }, [view]);
 
+  const checkProfanity = (text) => {
+    const lower = text.toLowerCase();
+    return PROFANITY_LIST.some(word => {
+      const regex = new RegExp(`\\b${word}\\b`, 'i');
+      return regex.test(lower);
+    });
+  };
+
   const moderateContent = async (text) => {
+    if (checkProfanity(text)) {
+      return { flagged: true, categories: { profanity: true } };
+    }
     try {
       const response = await fetch('/api/moderate', {
         method: 'POST',
@@ -128,7 +173,7 @@ const App = () => {
   };
 
   const handleAddLog = async () => {
-    if (!inputText.trim() || !user || isTransmitting) return;
+    if (!inputText.trim() || !user || isTransmitting || rateLimitRemaining > 0) return;
     setIsTransmitting(true);
     setModerationError('');
     try {
@@ -142,6 +187,9 @@ const App = () => {
         .from('logs')
         .insert([{ text: inputText, app_id: appId, upvotes: 0, author_id: user.id, created_at: new Date().toISOString() }]);
       if (error) return;
+      const postTime = Date.now();
+      setLastPostTime(postTime);
+      localStorage.setItem('node414_last_post', postTime.toString());
       setInputText('');
       setModerationError('');
       setView('READ');
@@ -149,6 +197,18 @@ const App = () => {
     } finally {
       setIsTransmitting(false);
     }
+  };
+
+  const getRelativeTime = (timestamp) => {
+    const diff = now - new Date(timestamp).getTime();
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    if (minutes > 0) return `${minutes}m ago`;
+    return 'just now';
   };
 
   const upvoteLog = async (logId) => {
@@ -391,16 +451,31 @@ const App = () => {
               <button onClick={() => setAdminAuthed(false)} className="text-red-500/60 border border-red-900/40 px-3 py-2 text-[9px] hover:bg-red-900/20 transition-all uppercase tracking-widest font-bold">LOGOUT</button>
             </div>
           </div>
-          <div className="flex justify-between items-center mb-6 text-[10px] font-bold">
-            <span className="opacity-60 uppercase tracking-widest">{logs.length} RECORDS_ONLINE</span>
-            <button
-              onClick={seedDatabase}
-              disabled={seeding}
-              className="flex items-center gap-1 border border-yellow-900/60 px-3 py-1 bg-yellow-950/20 text-yellow-500/70 hover:text-yellow-400 hover:border-yellow-500/60 transition-all disabled:opacity-40 text-[9px] uppercase tracking-widest font-bold"
-            >
-              {seeding && <Loader2 size={10} className="animate-spin" />}
-              {seeding ? 'SEEDING...' : 'SEED_DB'}
-            </button>
+          <div className="mb-6 space-y-3">
+            <div className="grid grid-cols-3 gap-3 text-[9px] font-bold uppercase tracking-widest">
+              <div className="border border-green-900/40 bg-green-950/20 p-3 text-center">
+                <div className="text-green-400 opacity-60">TOTAL</div>
+                <div className="text-[#22c55e] text-lg mt-1">{logs.length}</div>
+              </div>
+              <div className="border border-green-900/40 bg-green-950/20 p-3 text-center">
+                <div className="text-green-400 opacity-60">TOP_VOUCH</div>
+                <div className="text-[#22c55e] text-lg mt-1">{logs.length > 0 ? Math.max(...logs.map(l => l.upvotes || 0)) : 0}</div>
+              </div>
+              <div className="border border-green-900/40 bg-green-950/20 p-3 text-center">
+                <div className="text-green-400 opacity-60">TODAY</div>
+                <div className="text-[#22c55e] text-lg mt-1">{logs.filter(l => new Date(l.created_at).toDateString() === new Date().toDateString()).length}</div>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={seedDatabase}
+                disabled={seeding}
+                className="flex items-center gap-1 border border-yellow-900/60 px-3 py-1 bg-yellow-950/20 text-yellow-500/70 hover:text-yellow-400 hover:border-yellow-500/60 transition-all disabled:opacity-40 text-[9px] uppercase tracking-widest font-bold"
+              >
+                {seeding && <Loader2 size={10} className="animate-spin" />}
+                {seeding ? 'SEEDING...' : 'SEED_DB'}
+              </button>
+            </div>
           </div>
           <div ref={adminScrollRef} className="flex-1 min-h-0 overflow-y-auto space-y-6 custom-scrollbar pr-1 pb-8">
             {logs.map((log) => (
@@ -519,15 +594,28 @@ const App = () => {
 
         {view === 'READ' && (
           <div className="flex-1 flex flex-col animate-in fade-in slide-in-from-right-6 duration-300 overflow-hidden min-h-0">
+            {!isOnline && (
+              <div className="mb-4 bg-red-950/30 border border-red-900/60 p-3 text-red-400 text-[9px] uppercase tracking-widest font-bold text-center animate-pulse">
+                CONNECTION_LOST — ATTEMPTING_RECONNECT
+              </div>
+            )}
+            {newLogCount > 0 && (
+              <button
+                onClick={() => { setNewLogCount(0); scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                className="mb-4 bg-[#4ade80]/10 border border-[#4ade80]/40 p-3 text-[#4ade80] text-[9px] uppercase tracking-widest font-bold text-center hover:bg-[#4ade80]/20 transition-all"
+              >
+                {newLogCount} NEW_MESSAGE{newLogCount > 1 ? 'S' : ''} — TAP_TO_VIEW
+              </button>
+            )}
             <div className="flex justify-between items-center mb-6 text-[10px] font-bold">
-              <button onClick={() => setView('MENU')} className="text-[#4ade80] border border-green-900 px-4 py-1.5 hover:bg-green-900/30 transition-all uppercase tracking-widest">[ BACK ]</button>
+              <button onClick={() => setView('MENU')} className="text-[#4ade80] border border-green-900 px-4 py-2 min-h-[44px] hover:bg-green-900/30 transition-all uppercase tracking-widest">[ BACK ]</button>
               <span className="opacity-60 uppercase tracking-widest">{logs.length} RECORDS_ONLINE</span>
             </div>
             <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto space-y-6 custom-scrollbar pr-1 pb-24">
               {logs.map((log) => (
                 <div key={log.id} className="log-entry border-l-4 border-green-900/60 pl-6 py-4 space-y-4 bg-green-950/5">
                   <div className="flex justify-between items-center text-[10px] font-bold text-green-400 uppercase tracking-widest">
-                    <span>STAMP: {log.created_at ? new Date(log.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'SYNCING'}</span>
+                    <span>{log.created_at ? getRelativeTime(log.created_at) : 'SYNCING'}</span>
                     <button
                       onClick={() => upvoteLog(log.id)}
                       disabled={votedLogs.includes(log.id) || vouchingId === log.id}
@@ -558,7 +646,7 @@ const App = () => {
               )}
             </div>
             <div className="fixed bottom-6 left-4 right-4 max-w-md mx-auto z-20">
-              <button onClick={() => setView('WRITE')} className="w-full bg-[#4ade80] text-black py-6 font-black uppercase text-sm tracking-[0.4em] shadow-[0_0_40px_rgba(34,197,94,0.3)] hover:brightness-110 active:scale-95 transition-all">
+              <button onClick={() => setView('WRITE')} className="w-full bg-[#4ade80] text-black py-6 min-h-[56px] font-black uppercase text-sm tracking-[0.4em] shadow-[0_0_40px_rgba(34,197,94,0.3)] hover:brightness-110 active:scale-95 transition-all">
                 + APPEND_MY_TRACE
               </button>
             </div>
@@ -567,14 +655,26 @@ const App = () => {
 
         {view === 'WRITE' && (
           <div className="flex-1 flex flex-col animate-in fade-in slide-in-from-top-6 duration-300">
-            <button onClick={() => setView('MENU')} className="text-xs text-[#4ade80] mb-8 hover:text-white transition-colors font-bold uppercase tracking-[0.2em]">[ ABORT_ENTRY ]</button>
+            <button onClick={() => setView('MENU')} className="text-xs text-[#4ade80] mb-8 hover:text-white transition-colors font-bold uppercase tracking-[0.2em] min-h-[44px]">[ ABORT_ENTRY ]</button>
             <div className="flex-1 flex flex-col gap-6">
-              <div className="text-[10px] text-green-400 uppercase tracking-[0.3em] font-black">
-                {"> ESTABLISHING_ANONYMOUS_UPLINK..."}
+              <div className="flex justify-between items-center">
+                <div className="text-[10px] text-green-400 uppercase tracking-[0.3em] font-black">
+                  {"> ESTABLISHING_ANONYMOUS_UPLINK..."}
+                </div>
+                <div className={`text-[10px] font-bold uppercase tracking-widest ${
+                  inputText.length > MAX_CHARS ? 'text-red-400' : inputText.length > MAX_CHARS * 0.9 ? 'text-yellow-400' : 'text-green-400'
+                }`}>
+                  {inputText.length}/{MAX_CHARS}
+                </div>
               </div>
               {moderationError && (
                 <div className="bg-red-950/30 border border-red-900/60 p-4 text-red-400 text-[10px] uppercase tracking-widest font-bold animate-pulse">
                   {moderationError}
+                </div>
+              )}
+              {rateLimitRemaining > 0 && (
+                <div className="bg-yellow-950/30 border border-yellow-900/60 p-4 text-yellow-400 text-[10px] uppercase tracking-widest font-bold">
+                  RATE_LIMIT: WAIT {Math.floor(rateLimitRemaining / 60)}:{String(rateLimitRemaining % 60).padStart(2, '0')}
                 </div>
               )}
               <textarea 
@@ -582,13 +682,17 @@ const App = () => {
                 className="flex-1 w-full bg-[#080808] border-2 border-green-900 p-6 text-[#4ade80] focus:outline-none focus:border-[#4ade80] font-mono text-lg leading-relaxed resize-none rounded-none placeholder:text-green-950 terminal-glow"
                 placeholder="Leave a secret, a joke, or advice for the next person..."
                 value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
+                onChange={(e) => {
+                  if (e.target.value.length <= MAX_CHARS) {
+                    setInputText(e.target.value);
+                  }
+                }}
                 disabled={isTransmitting}
               />
               <button 
                 onClick={handleAddLog}
-                disabled={isTransmitting || !inputText.trim()}
-                className="w-full flex items-center justify-center gap-4 bg-[#4ade80] text-black py-8 font-black disabled:bg-green-950 disabled:text-green-900 transition-all uppercase tracking-[0.4em] text-sm shadow-[0_0_30px_rgba(34,197,94,0.2)]"
+                disabled={isTransmitting || !inputText.trim() || rateLimitRemaining > 0 || inputText.length > MAX_CHARS}
+                className="w-full flex items-center justify-center gap-4 bg-[#4ade80] text-black py-8 min-h-[56px] font-black disabled:bg-green-950 disabled:text-green-900 transition-all uppercase tracking-[0.4em] text-sm shadow-[0_0_30px_rgba(34,197,94,0.2)]"
               >
                 {isTransmitting ? <Loader2 size={24} className="animate-spin" /> : <Send size={24} />}
                 {isTransmitting ? 'TRANSMITTING...' : 'CONFIRM_TRACE'}
