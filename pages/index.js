@@ -298,14 +298,14 @@ const App = () => {
       const h = 60 * 60 * 1000;
       const m = 60 * 1000;
       const seeds = [
-        { text: "whoever was just in here before me left the door unlocked lol", upvotes: 3, created_at: new Date(now - 12 * h).toISOString() },
-        { text: "nah why does this feel like i wasn't the first one reading this tonight", upvotes: 2, created_at: new Date(now - 9 * h).toISOString() },
-        { text: "driver hasn't said a word the whole ride. kinda respect it", upvotes: 1, created_at: new Date(now - 7 * h).toISOString() },
-        { text: "someone said don't sit on the right side\u2026 i'm on the right side", upvotes: 1, created_at: new Date(now - 5 * h).toISOString() },
-        { text: "this is way more interesting than my conversation rn", upvotes: 1, created_at: new Date(now - 3 * h).toISOString() },
-        { text: "i feel like people are leaving messages for each other but missing every time", upvotes: 1, created_at: new Date(now - 90 * m).toISOString() },
-        { text: "if you're reading this later\u2014yes it was loud as hell on grand river tonight", upvotes: 1, created_at: new Date(now - 20 * m).toISOString() },
-        { text: "3 min ago: 'don't open this'\nyeah ok", upvotes: 0, created_at: new Date(now - 3 * m).toISOString() },
+        { text: "whoever was in here right before me left the door unlocked lmao", upvotes: 3, created_at: new Date(now - 12 * h).toISOString() },
+        { text: "why do i feel like im not the first person reading this rn", upvotes: 2, created_at: new Date(now - 9 * h).toISOString() },
+        { text: "driver hasnt said a single word the whole ride. honestly respect it", upvotes: 1, created_at: new Date(now - 7 * h).toISOString() },
+        { text: "bro said dont sit on the right side... im literally on the right side", upvotes: 1, created_at: new Date(now - 5 * h).toISOString() },
+        { text: "reading this instead of talking to my friends rn", upvotes: 1, created_at: new Date(now - 3 * h).toISOString() },
+        { text: "yall treating this like a digital bathroom stall", upvotes: 1, created_at: new Date(now - 90 * m).toISOString() },
+        { text: "if ur reading this tomorrow morning yes grand river was insane tonight", upvotes: 1, created_at: new Date(now - 20 * m).toISOString() },
+        { text: "to whoever said dont open this 3 mins ago: yeah ok lol", upvotes: 0, created_at: new Date(now - 3 * m).toISOString() },
       ];
       await supabase.from('logs').delete().eq('app_id', appId);
       await supabase.from('logs').insert(seeds.map(s => ({ ...s, app_id: appId, author_id: 'seed_system' })));
