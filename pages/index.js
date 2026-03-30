@@ -488,7 +488,7 @@ const App = () => {
             {logs.map((log) => (
               <div key={log.id} className="log-entry border-l-4 border-green-900/60 pl-6 py-4 space-y-4 bg-green-950/5">
                 <div className="flex justify-between items-center text-[10px] font-bold text-green-400 uppercase tracking-widest">
-                  <span>STAMP: {log.created_at ? new Date(log.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'SYNCING'}</span>
+                  <span>{log.created_at ? getRelativeTime(log.created_at) : 'SYNCING'}</span>
                   <div className="flex items-center gap-2">
                     <span className="border border-green-900/40 px-3 py-1 bg-green-950/20">VOUCH: {log.upvotes || 0}</span>
                     <button
